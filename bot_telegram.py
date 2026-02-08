@@ -6,9 +6,13 @@ from telegram import Update
 from telegram.ext import ApplicationBuilder, MessageHandler, filters, ContextTypes
 import csv
 import os
+import asyncio
 
-# 🔑 TOKEN DESDE VARIABLE DE ENTORNO (SEGURO PARA GITHUB / RENDER)
+# 🔑 TOKEN DESDE VARIABLE DE ENTORNO
 TOKEN = os.getenv("TOKEN")
+
+if not TOKEN:
+    raise ValueError("❌ La variable de entorno TOKEN no está definida.")
 
 # ==========================================
 # 🛍️ CATÁLOGO DE PRODUCTOS
@@ -31,16 +35,13 @@ usuarios = {}
 # ==========================================
 
 def guardar_lead(nombre, email, producto):
-
     archivo = "leads_ventas.csv"
     existe = os.path.isfile(archivo)
 
     with open(archivo, "a", newline="", encoding="utf-8") as f:
         writer = csv.writer(f)
-
         if not existe:
             writer.writerow(["Nombre", "Email", "Producto"])
-
         writer.writerow([nombre, email, producto])
 
 # ==========================================
@@ -63,7 +64,6 @@ async def responder(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # ======================================
 
     if mensaje == "hola":
-
         await update.message.reply_text(
             "¡Hola! 😊 Soy *Yessica Bot Comercial* 🛍️\n\n"
             "Puedo ayudarte con cursos, bots y asesorías.\n"
@@ -76,14 +76,10 @@ async def responder(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # ======================================
 
     elif "producto" in mensaje:
-
         texto = "🛍️ *Catálogo disponible:*\n\n"
-
         for nombre, precio in catalogo.items():
             texto += f"• *{nombre.title()}* — 💲 ${precio} USD\n"
-
         texto += "\nEscribe *comprar* para iniciar tu pedido."
-
         await update.message.reply_text(texto, parse_mode="Markdown")
 
     # ======================================
@@ -91,9 +87,7 @@ async def responder(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # ======================================
 
     elif "comprar" in mensaje:
-
         usuarios[user_id]["estado"] = "nombre"
-
         await update.message.reply_text(
             "¡Excelente decisión! 🛒✨\n\n"
             "Primero necesito tu *nombre*.",
@@ -105,10 +99,8 @@ async def responder(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # ======================================
 
     elif estado == "nombre":
-
         usuarios[user_id]["nombre"] = mensaje
         usuarios[user_id]["estado"] = "email"
-
         await update.message.reply_text(
             f"Gracias *{mensaje.title()}* 😊\n\n"
             "Ahora tu *email*.",
@@ -120,15 +112,11 @@ async def responder(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # ======================================
 
     elif estado == "email":
-
         usuarios[user_id]["email"] = mensaje
         usuarios[user_id]["estado"] = "producto"
-
         texto = "Perfecto 👍\n\n¿Qué producto deseas?\n\n"
-
         for nombre in catalogo:
             texto += f"• {nombre.title()}\n"
-
         await update.message.reply_text(texto)
 
     # ======================================
@@ -136,17 +124,13 @@ async def responder(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # ======================================
 
     elif estado == "producto":
-
         producto = mensaje
-
         if producto not in catalogo:
-
             await update.message.reply_text(
                 "❌ Producto no válido.\n"
                 "Escribe uno del catálogo."
             )
             return
-
         usuarios[user_id]["producto"] = producto
 
         # Guardar lead
@@ -173,7 +157,6 @@ async def responder(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # ======================================
 
     else:
-
         await update.message.reply_text(
             "No entendí tu mensaje 🤔\n"
             "Escribe *productos* para ver el catálogo.",
@@ -181,22 +164,18 @@ async def responder(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
 
 # ==========================================
-# 🚀 INICIAR BOT
+# 🚀 INICIAR BOT ASINCRÓNICAMENTE
 # ==========================================
 
-def main():
-
+async def main():
     app = ApplicationBuilder().token(TOKEN).build()
-
-    app.add_handler(MessageHandler(filters.TEXT, responder))
-
+    app.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), responder))
     print("🤖 Bot comercial activo en Telegram...")
-
-    app.run_polling()
+    await app.run_polling()
 
 # ==========================================
 # ▶️ EJECUCIÓN
 # ==========================================
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())

@@ -1,23 +1,22 @@
 # ==========================================
-# 🤖 BOT TELEGRAM COMERCIAL PARA RENDER (WEBHOOK)
+# 🤖 BOT TELEGRAM COMERCIAL PARA RENDER (WEBHOOK) - v20+
 # ==========================================
 
 from flask import Flask, request
 from telegram import Update
-from telegram.ext import ApplicationBuilder, ContextTypes, Dispatcher, MessageHandler, filters
+from telegram.ext import ApplicationBuilder, ContextTypes, MessageHandler, filters
 import csv
 import os
+import asyncio
 
 # ==========================================
 # 🌐 SERVIDOR FLASK
 # ==========================================
-
 web_app = Flask(__name__)
 
 # ==========================================
 # 🔑 TOKEN
 # ==========================================
-
 TOKEN = os.getenv("TOKEN")
 if not TOKEN:
     raise ValueError("❌ La variable de entorno TOKEN no está definida.")
@@ -25,7 +24,6 @@ if not TOKEN:
 # ==========================================
 # 🛍️ CATÁLOGO DE PRODUCTOS
 # ==========================================
-
 catalogo = {
     "curso python": 49,
     "bot whatsapp": 99,
@@ -35,29 +33,24 @@ catalogo = {
 # ==========================================
 # 🧠 MEMORIA DE USUARIOS
 # ==========================================
-
 usuarios = {}
 
 # ==========================================
 # 💾 GUARDAR LEADS EN CSV
 # ==========================================
-
 def guardar_lead(nombre, email, producto):
     archivo = "leads_ventas.csv"
     existe = os.path.isfile(archivo)
-
     with open(archivo, "a", newline="", encoding="utf-8") as f:
         writer = csv.writer(f)
         if not existe:
             writer.writerow(["Nombre", "Email", "Producto"])
         writer.writerow([nombre, email, producto])
-
     print(f"💾 Lead guardado: {nombre} - {email} - {producto}")
 
 # ==========================================
 # 🤖 RESPUESTAS DEL BOT
 # ==========================================
-
 async def responder(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.message.from_user.id
     mensaje = update.message.text.lower()
@@ -127,18 +120,17 @@ async def responder(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # ==========================================
 # 🚀 INICIAR TELEGRAM
 # ==========================================
-
 app_telegram = ApplicationBuilder().token(TOKEN).build()
 app_telegram.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), responder))
 
 # ==========================================
 # 📬 WEBHOOK
 # ==========================================
-
 @web_app.route(f"/{TOKEN}", methods=["POST"])
 def webhook():
     update = Update.de_json(request.get_json(force=True), app_telegram.bot)
-    app_telegram.update_queue.put(update)
+    # Se procesa la actualización de forma síncrona en asyncio
+    asyncio.run(app_telegram.process_update(update))
     return "ok"
 
 # Endpoint de prueba
@@ -149,7 +141,6 @@ def home():
 # ==========================================
 # ▶️ EJECUCIÓN PRINCIPAL
 # ==========================================
-
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))
     print("🌐 Servidor Flask iniciado en puerto", port)

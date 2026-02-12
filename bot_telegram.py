@@ -2,24 +2,19 @@
 # 🤖 BOT TELEGRAM COMERCIAL PARA RENDER (WEBHOOK) - v20+
 # ==========================================
 
-from flask import Flask, request
+import os
+import csv
 from telegram import Update
 from telegram.ext import ApplicationBuilder, ContextTypes, MessageHandler, filters
-import csv
-import os
-import asyncio
 
 # ==========================================
-# 🌐 SERVIDOR FLASK
-# ==========================================
-web_app = Flask(__name__)
-
-# ==========================================
-# 🔑 TOKEN
+# 🔑 TOKEN y PORT
 # ==========================================
 TOKEN = os.getenv("TOKEN")
 if not TOKEN:
     raise ValueError("❌ La variable de entorno TOKEN no está definida.")
+
+PORT = int(os.environ.get("PORT", 10000))  # Render define automáticamente PORT
 
 # ==========================================
 # 🛍️ CATÁLOGO DE PRODUCTOS
@@ -83,7 +78,10 @@ async def responder(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif estado == "nombre":
         usuarios[user_id]["nombre"] = mensaje
         usuarios[user_id]["estado"] = "email"
-        await update.message.reply_text(f"Gracias *{mensaje.title()}* 😊\n\nAhora tu *email*.", parse_mode="Markdown")
+        await update.message.reply_text(
+            f"Gracias *{mensaje.title()}* 😊\n\nAhora tu *email*.",
+            parse_mode="Markdown"
+        )
     elif estado == "email":
         usuarios[user_id]["email"] = mensaje
         usuarios[user_id]["estado"] = "producto"
@@ -118,31 +116,20 @@ async def responder(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
 
 # ==========================================
-# 🚀 INICIAR TELEGRAM
+# 🚀 CREAR LA APP DE TELEGRAM
 # ==========================================
 app_telegram = ApplicationBuilder().token(TOKEN).build()
 app_telegram.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), responder))
 
 # ==========================================
-# 📬 WEBHOOK
-# ==========================================
-@web_app.route(f"/{TOKEN}", methods=["POST"])
-def webhook():
-    update = Update.de_json(request.get_json(force=True), app_telegram.bot)
-    # Se procesa la actualización de forma síncrona en asyncio
-    asyncio.run(app_telegram.process_update(update))
-    return "ok"
-
-# Endpoint de prueba
-@web_app.route("/")
-def home():
-    return "Bot comercial activo en Telegram"
-
-# ==========================================
-# ▶️ EJECUCIÓN PRINCIPAL
+# ▶️ EJECUTAR WEBHOOK DIRECTAMENTE (v20+)
 # ==========================================
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 10000))
-    print("🌐 Servidor Flask iniciado en puerto", port)
-    web_app.run(host="0.0.0.0", port=port)
-
+    print(f"🌐 Iniciando bot en Render con webhook https://bot-telegram-ventas.onrender.com/{TOKEN}")
+    
+    app_telegram.run_webhook(
+        listen="0.0.0.0",
+        port=PORT,
+        url_path=TOKEN,
+        webhook_url=f"https://bot-telegram-ventas.onrender.com/{TOKEN}"
+    )

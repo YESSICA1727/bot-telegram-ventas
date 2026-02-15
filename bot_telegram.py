@@ -27,7 +27,7 @@ catalogo = {
 }
 
 # ==========================================
-# 💳 LINKS DE PAGO STRIPE (PEGA LOS TUYOS)
+# 💳 LINKS DE PAGO STRIPE
 # ==========================================
 links_pago = {
     "curso python": "https://buy.stripe.com/test_cNi5kE7BU95b3zdcG56Vq00",
@@ -60,7 +60,7 @@ def guardar_lead(nombre, email, producto):
 # ==========================================
 async def responder(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.message.from_user.id
-    mensaje = update.message.text.lower()
+    mensaje = update.message.text.lower().strip()
 
     print(f"📩 Mensaje de {user_id}: {mensaje}")
 
@@ -135,8 +135,7 @@ async def responder(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # PRODUCTO + LINK DE PAGO
     # --------------------------------------
     elif estado == "producto":
-        producto = mensaje.strip().lower()
-
+        producto = mensaje
 
         if producto not in catalogo:
             await update.message.reply_text(
@@ -153,16 +152,14 @@ async def responder(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
 
         precio = catalogo[producto]
-
-        # 💳 Link fijo Stripe
         link_pago = links_pago[producto]
 
+        # 🔧 SIN MARKDOWN (para evitar error con links)
         await update.message.reply_text(
-            f"✅ *Pedido registrado*\n\n"
+            f"✅ Pedido registrado\n\n"
             f"🛍️ Producto: {producto.title()}\n"
             f"💲 Precio: ${precio} USD\n\n"
-            f"💳 *Paga aquí:* \n{link_pago}",
-            parse_mode="Markdown"
+            f"💳 Paga aquí:\n{link_pago}"
         )
 
         usuarios[user_id]["estado"] = "inicio"

@@ -1,4 +1,5 @@
 python-telegram-bot[webhooks]==20.4
+stripe==8.0.0
 
 
 

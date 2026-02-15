@@ -1,10 +1,10 @@
 # ==========================================
-# 🤖 BOT TELEGRAM COMERCIAL + STRIPE (RENDER WEBHOOK) - v20+
+# 🤖 BOT TELEGRAM COMERCIAL + PAYMENT LINKS
+# 🌐 RENDER WEBHOOK - v20+
 # ==========================================
 
 import os
 import csv
-import stripe
 from telegram import Update
 from telegram.ext import ApplicationBuilder, ContextTypes, MessageHandler, filters
 
@@ -18,21 +18,21 @@ if not TOKEN:
 PORT = int(os.environ.get("PORT", 10000))
 
 # ==========================================
-# 🔑 STRIPE CONFIG
-# ==========================================
-STRIPE_SECRET_KEY = os.getenv("STRIPE_SECRET_KEY")
-if not STRIPE_SECRET_KEY:
-    raise ValueError("❌ Falta STRIPE_SECRET_KEY")
-
-stripe.api_key = STRIPE_SECRET_KEY
-
-# ==========================================
 # 🛍️ CATÁLOGO
 # ==========================================
 catalogo = {
     "curso python": 49,
     "bot whatsapp": 99,
     "asesoría datos": 30
+}
+
+# ==========================================
+# 💳 LINKS DE PAGO STRIPE (PEGA LOS TUYOS)
+# ==========================================
+links_pago = {
+    "curso python": "https://buy.stripe.com/test_cNi5kE7BU95b3zdcG56Vq00",
+    "bot whatsapp": "https://buy.stripe.com/test_cNi5kE7BU95b3zdcG56Vq00",
+    "asesoría datos": "https://buy.stripe.com/test_cNi5kE7BU95b3zdcG56Vq00"
 }
 
 # ==========================================
@@ -54,36 +54,6 @@ def guardar_lead(nombre, email, producto):
         writer.writerow([nombre, email, producto])
 
     print(f"💾 Lead guardado: {nombre} - {email} - {producto}")
-
-# ==========================================
-# 💳 CREAR LINK DE PAGO STRIPE
-# ==========================================
-def crear_link_pago(nombre_producto, precio):
-    try:
-        session = stripe.checkout.Session.create(
-            payment_method_types=["card"],
-            line_items=[{
-                "price_data": {
-                    "currency": "usd",
-                    "product_data": {
-                        "name": nombre_producto.title(),
-                    },
-                    "unit_amount": int(precio * 100),
-                },
-                "quantity": 1,
-            }],
-            mode="payment",
-
-            # 🔁 Cambia luego por tu dominio real
-            success_url="https://example.com/success",
-            cancel_url="https://example.com/cancel",
-        )
-
-        return session.url
-
-    except Exception as e:
-        print(f"❌ Error Stripe: {e}")
-        return None
 
 # ==========================================
 # 🤖 RESPUESTAS BOT
@@ -162,7 +132,7 @@ async def responder(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(texto)
 
     # --------------------------------------
-    # PRODUCTO + STRIPE
+    # PRODUCTO + LINK DE PAGO
     # --------------------------------------
     elif estado == "producto":
         producto = mensaje
@@ -183,14 +153,8 @@ async def responder(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         precio = catalogo[producto]
 
-        # 💳 Crear link Stripe
-        link_pago = crear_link_pago(producto, precio)
-
-        if not link_pago:
-            await update.message.reply_text(
-                "❌ Hubo un problema generando el link de pago."
-            )
-            return
+        # 💳 Link fijo Stripe
+        link_pago = links_pago[producto]
 
         await update.message.reply_text(
             f"✅ *Pedido registrado*\n\n"

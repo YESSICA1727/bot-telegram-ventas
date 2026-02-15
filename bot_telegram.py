@@ -135,7 +135,8 @@ async def responder(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # PRODUCTO + LINK DE PAGO
     # --------------------------------------
     elif estado == "producto":
-        producto = mensaje
+        producto = mensaje.strip().lower()
+
 
         if producto not in catalogo:
             await update.message.reply_text(

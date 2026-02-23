@@ -169,20 +169,25 @@ async def responder(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # ==========================================
 # 🚀 APP TELEGRAM
 # ==========================================
-app = ApplicationBuilder().token(TOKEN).build()
+
+async def startup(app):
+    init_db()
+    print("🌐 Bot iniciado correctamente")
+
+app = (
+    ApplicationBuilder()
+    .token(TOKEN)
+    .post_init(startup)
+    .build()
+)
+
 app.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), responder))
 
 # ==========================================
 # ▶️ WEBHOOK RENDER
 # ==========================================
+
 if __name__ == "__main__":
-
-    async def startup(app):
-        init_db()
-        print("🌐 Bot iniciado correctamente")
-
-    app.post_init = startup
-
     app.run_webhook(
         listen="0.0.0.0",
         port=PORT,

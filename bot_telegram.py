@@ -1,15 +1,15 @@
 # ==========================================
 # 🤖 BOT TELEGRAM COMERCIAL + PAYMENT LINKS
-# 🌐 RENDER WEBHOOK - v20+ + asyncpg
+# 🌐 RENDER WEBHOOK - v20+ + PostgreSQL
 # ==========================================
 
 import os
-import asyncpg
+import psycopg2
 from telegram import Update
 from telegram.ext import ApplicationBuilder, ContextTypes, MessageHandler, filters
 
 # ==========================================
-# 🔑 TOKEN TELEGRAM + PORT
+# 🔑 TOKEN TELEGRAM + PORT + DATABASE
 # ==========================================
 TOKEN = os.getenv("TOKEN")
 PORT = int(os.environ.get("PORT", 10000))
@@ -21,33 +21,44 @@ if not DATABASE_URL:
     raise ValueError("❌ DATABASE_URL no está definida.")
 
 # ==========================================
-# 🗄️ BASE DE DATOS
+# 🗄️ INICIALIZAR BASE DE DATOS
 # ==========================================
-db_pool = None
+def init_db():
+    conn = psycopg2.connect(DATABASE_URL)
+    cur = conn.cursor()
 
-async def init_db():
-    global db_pool
-    db_pool = await asyncpg.create_pool(DATABASE_URL)
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS leads (
+            id SERIAL PRIMARY KEY,
+            nombre TEXT,
+            email TEXT,
+            producto TEXT,
+            fecha TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+    """)
 
-    async with db_pool.acquire() as conn:
-        await conn.execute("""
-            CREATE TABLE IF NOT EXISTS leads (
-                id SERIAL PRIMARY KEY,
-                nombre TEXT,
-                email TEXT,
-                producto TEXT,
-                fecha TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            );
-        """)
+    conn.commit()
+    cur.close()
+    conn.close()
 
+    print("✅ Base de datos lista")
+
+# ==========================================
+# 💾 GUARDAR LEAD
+# ==========================================
 async def guardar_lead(nombre, email, producto):
-    async with db_pool.acquire() as conn:
-        await conn.execute(
-            "INSERT INTO leads(nombre, email, producto) VALUES($1, $2, $3)",
-            nombre,
-            email,
-            producto
-        )
+    conn = psycopg2.connect(DATABASE_URL)
+    cur = conn.cursor()
+
+    cur.execute(
+        "INSERT INTO leads(nombre, email, producto) VALUES(%s, %s, %s)",
+        (nombre, email, producto)
+    )
+
+    conn.commit()
+    cur.close()
+    conn.close()
+
     print(f"💾 Lead guardado: {nombre} - {producto}")
 
 # ==========================================
@@ -150,7 +161,10 @@ async def responder(update: Update, context: ContextTypes.DEFAULT_TYPE):
         usuarios[user_id]["estado"] = "inicio"
 
     else:
-        await update.message.reply_text("Escribe *productos*", parse_mode="Markdown")
+        await update.message.reply_text(
+            "Escribe *productos* para ver el catálogo.",
+            parse_mode="Markdown"
+        )
 
 # ==========================================
 # 🚀 APP TELEGRAM
@@ -162,10 +176,9 @@ app.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), responder))
 # ▶️ WEBHOOK RENDER
 # ==========================================
 if __name__ == "__main__":
-    import asyncio
 
-    async def startup():
-        await init_db()
+    async def startup(app):
+        init_db()
         print("🌐 Bot iniciado correctamente")
 
     app.post_init = startup

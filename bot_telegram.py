@@ -4,7 +4,7 @@
 # ==========================================
 
 import os
-import csv
+import psycopg2
 from telegram import Update
 from telegram.ext import ApplicationBuilder, ContextTypes, MessageHandler, filters
 
@@ -18,12 +18,37 @@ if not TOKEN:
 PORT = int(os.environ.get("PORT", 10000))
 
 # ==========================================
-# 🛍️ CATÁLOGO
+# 🗄️ CONEXIÓN POSTGRESQL (RENDER)
+# ==========================================
+DATABASE_URL = os.getenv("DATABASE_URL")
+if not DATABASE_URL:
+    raise ValueError("❌ DATABASE_URL no está definida.")
+
+conn = psycopg2.connect(DATABASE_URL)
+cursor = conn.cursor()
+
+cursor.execute("""
+CREATE TABLE IF NOT EXISTS leads (
+    id SERIAL PRIMARY KEY,
+    nombre TEXT,
+    email TEXT,
+    producto TEXT,
+    fecha TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+)
+""")
+
+conn.commit()
+
+# ==========================================
+# 🛍️ CATÁLOGO ACTUALIZADO
 # ==========================================
 catalogo = {
     "curso python": 49,
+    "plantillas digitales": 39,
     "bot whatsapp": 99,
-    "asesoría datos": 30
+    "bot telegram": 79,
+    "bot instagram": 119,
+    "bot facebook": 119
 }
 
 # ==========================================
@@ -31,8 +56,11 @@ catalogo = {
 # ==========================================
 links_pago = {
     "curso python": "https://buy.stripe.com/test_cNi5kE7BU95b3zdcG56Vq00",
+    "plantillas digitales": "https://buy.stripe.com/test_cNi5kE7BU95b3zdcG56Vq00",
     "bot whatsapp": "https://buy.stripe.com/test_cNi5kE7BU95b3zdcG56Vq00",
-    "asesoría datos": "https://buy.stripe.com/test_cNi5kE7BU95b3zdcG56Vq00"
+    "bot telegram": "https://buy.stripe.com/test_cNi5kE7BU95b3zdcG56Vq00",
+    "bot instagram": "https://buy.stripe.com/test_cNi5kE7BU95b3zdcG56Vq00",
+    "bot facebook": "https://buy.stripe.com/test_cNi5kE7BU95b3zdcG56Vq00"
 }
 
 # ==========================================
@@ -41,19 +69,15 @@ links_pago = {
 usuarios = {}
 
 # ==========================================
-# 💾 GUARDAR LEADS CSV
+# 💾 GUARDAR LEADS EN POSTGRESQL
 # ==========================================
 def guardar_lead(nombre, email, producto):
-    archivo = "leads_ventas.csv"
-    existe = os.path.isfile(archivo)
-
-    with open(archivo, "a", newline="", encoding="utf-8") as f:
-        writer = csv.writer(f)
-        if not existe:
-            writer.writerow(["Nombre", "Email", "Producto"])
-        writer.writerow([nombre, email, producto])
-
-    print(f"💾 Lead guardado: {nombre} - {email} - {producto}")
+    cursor.execute(
+        "INSERT INTO leads (nombre, email, producto) VALUES (%s, %s, %s)",
+        (nombre, email, producto)
+    )
+    conn.commit()
+    print(f"💾 Lead guardado en PostgreSQL: {nombre} - {producto}")
 
 # ==========================================
 # 🤖 RESPUESTAS BOT
@@ -75,7 +99,7 @@ async def responder(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if mensaje == "hola":
         await update.message.reply_text(
             "¡Hola! 😊 Soy *Yessica Bot Comercial* 🛍️\n\n"
-            "Puedo ayudarte con cursos, bots y asesorías.\n"
+            "Puedo ayudarte con cursos, bots y plantillas digitales.\n"
             "Escribe *productos* para ver el catálogo.",
             parse_mode="Markdown"
         )
@@ -139,7 +163,7 @@ async def responder(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         if producto not in catalogo:
             await update.message.reply_text(
-                "❌ Producto no válido.\nEscribe uno del catálogo."
+                "❌ Producto no válido.\nEscribe uno del catálogo exactamente igual."
             )
             return
 
@@ -154,7 +178,6 @@ async def responder(update: Update, context: ContextTypes.DEFAULT_TYPE):
         precio = catalogo[producto]
         link_pago = links_pago[producto]
 
-        # 🔧 SIN MARKDOWN (para evitar error con links)
         await update.message.reply_text(
             f"✅ Pedido registrado\n\n"
             f"🛍️ Producto: {producto.title()}\n"

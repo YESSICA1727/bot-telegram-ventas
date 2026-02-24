@@ -4,7 +4,7 @@
 # ==========================================
 
 import os
-import psycopg2
+import psycopg
 from telegram import Update
 from telegram.ext import ApplicationBuilder, ContextTypes, MessageHandler, filters
 
@@ -24,7 +24,7 @@ if not DATABASE_URL:
 # 🗄️ INICIALIZAR BASE DE DATOS
 # ==========================================
 def init_db():
-    conn = psycopg2.connect(DATABASE_URL)
+    conn = psycopg.connect(DATABASE_URL)
     cur = conn.cursor()
 
     cur.execute("""
@@ -47,7 +47,7 @@ def init_db():
 # 💾 GUARDAR LEAD
 # ==========================================
 async def guardar_lead(nombre, email, producto):
-    conn = psycopg2.connect(DATABASE_URL)
+    conn = psycopg.connect(DATABASE_URL)
     cur = conn.cursor()
 
     cur.execute(
